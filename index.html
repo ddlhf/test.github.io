@@ -555,6 +555,34 @@
     background-color: #FFEBEE;
 }
 
+/* 新增多选题错误样式 */
+.quiz-option.incorrect-option {
+    background: #FFEBEE !important;
+    border: 2px solid #F44336 !important;
+    animation: shake 0.5s;
+}
+
+/* 正确选项增强样式 */
+.quiz-option.correct-option {
+    background: #E8F5E9 !important;
+    border: 2px solid #4CAF50 !important;
+    animation: pulse-green 1s;
+}
+
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-3px); }
+    100% { transform: translateX(0); }
+}
+
+@keyframes pulse-green {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
 @media (max-width: 768px) {
     .quiz-option {
         padding: 10px 12px;
@@ -769,9 +797,12 @@
         }
         
         .skill-radar {
-            height: 250px;
-            margin-bottom: 15px;
-        }
+    height: 300px;
+    margin: 0 auto 15px; /* 上下0 左右自动 */
+    margin-left: 35%;
+    position: relative;
+    width: 80%; /* 必须设置宽度（非100%） */
+}
         
         .skill-level {
             display: flex;
@@ -1058,98 +1089,6 @@ function loadQuizQuestions() {
     renderQuestions(questions);
 }
 
-function renderQuestions() {
-    const quizContainer = document.getElementById('quizContainer');
-    if (!quizContainer || !questionBank?.length) {
-        console.error('初始化失败：容器或题库数据异常');
-        return;
-    }
-    const container = document.getElementById('quizContainer');
-    if (!container) {
-        console.error('找不到题目容器');
-        return;
-    }
-    
-    // 按题型分类抽取
-    const types = ['单项选择题', '多项选择题', '判断题'];
-    const selected = types.map(t => 
-        questionBank.filter(q => q.type === t)
-                   .sort(() => 0.5 - Math.random())
-                   .slice(0,5)
-    ).flat();
-
-    // 生成带序号的题目
-    const questions = selected.slice(0,15).map((q, i) => ({...q, num: i+1}));
-    
-    container.innerHTML = questions.map(q => `
-        <div class="question-card" data-answer="${q.answer}">
-            <div class="question-header">
-                <span class="question-number">第${q.num}题</span>
-                <div class="question-body">${q.content}</div>
-                <button class="toggle-explanation">点击展开解析</button>
-            </div>
-            <div class="quiz-explanation" style="display:none">
-                <div class="correct-answer" style="color:var(--success);font-weight:bold;margin-bottom:10px;">
-                    正确答案：${q.answer}
-                </div>
-                <div style="color:#666;font-size:0.9em;">
-                    ${q.explanation || '暂无解析内容'}
-                </div>
-            </div>
-            <div class="quiz-options">
-                ${Object.entries(q.options).map(([key, val]) => `
-                    <label class="quiz-option">
-                        <input type="${q.type === '多项选择题' ? 'checkbox' : 'radio'}" 
-                               name="q${q.num}" 
-                               value="${key}">
-                        <span class="option-label">${key}. ${val}</span>
-                    </label>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-
-    // 绑定解析切换事件
-    document.querySelectorAll('.toggle-explanation').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const explanation = this.parentElement.nextElementSibling;
-            explanation.style.display = explanation.style.display === 'none' ? 'block' : 'none';
-            this.textContent = explanation.style.display === 'none' ? '点击展开解析' : '收起解析';
-        });
-    });
-
-    // 处理判断题选项
-document.querySelectorAll('.judgement-options label').forEach(label => {
-    const isTrue = label.textContent.includes('true');
-    label.innerHTML = `
-        <span class="option-label">
-            ${isTrue ? 'A. 正确' : 'B. 错误'}
-        </span>
-    `;
-});
-
-// 处理常规题目选项
-document.querySelectorAll('.quiz-option').forEach(option => {
-    const input = option.querySelector('input');
-    const label = option.querySelector('label');
-    if (label && input) {
-        const optionLetter = input.value.toUpperCase();
-        label.innerHTML = `
-            <span class="option-label">
-                ${optionLetter}. ${label.textContent.replace(/^[A-Z]\.?\s*/, '')}
-            </span>
-        `;
-    }
-});
-
-    // 绑定答题事件
-    document.querySelectorAll('.quiz-option input').forEach(input => {
-        input.addEventListener('change', function() {
-            this.closest('.question-card').classList.add('answered');
-            updateProgress();
-        });
-    });
-}
 
 function updateProgress() {
     const answered = document.querySelectorAll('.question-card:has(input:checked)').length;
@@ -1230,11 +1169,41 @@ function submitQuiz(e) {
         } else {
             question.classList.add('answered-wrong');
             // 高亮正确答案
-            question.querySelectorAll('input').forEach(input => {
-                if (input.value === correctAnswer) {
-                    input.parentElement.classList.add('correct-answer');
-                }
-            });
+            if (question.dataset.type === '多项选择题') {
+                const correctAnswers = correctAnswer.split(',');
+                question.querySelectorAll('.quiz-option').forEach(option => {
+                    const input = option.querySelector('input');
+                    const optionValue = input.value;
+                    const isCorrect = correctAnswers.includes(optionValue);
+                    const isSelected = input.checked;
+                    
+                    if (isCorrect) {
+                        option.classList.add('correct-option');
+                    }
+                    if (isSelected && !isCorrect) {
+                        option.classList.add('incorrect-option');
+                    }
+                });
+            } else {
+                const correctAnswer = question.dataset.answer;
+                
+                question.querySelectorAll('.quiz-option').forEach(option => {
+                    const input = option.querySelector('input');
+                    const isCorrect = input.value === correctAnswer;
+                    const isSelected = input.checked;
+
+                    option.classList.remove('correct-option', 'incorrect-option');
+                    
+                    // 标记用户选择状态
+                    if (isSelected) {
+                        option.classList.add(isCorrect ? 'correct-option' : 'incorrect-option');
+                    }
+                    // 始终显示正确选项
+                    if (isCorrect) {
+                        option.classList.add('correct-option');
+                    }
+                });
+            }
         }
     });
 
@@ -1277,98 +1246,6 @@ function loadQuizQuestions() {
     renderQuestions(questions);
 }
 
-function renderQuestions() {
-    const quizContainer = document.getElementById('quizContainer');
-    if (!quizContainer || !questionBank?.length) {
-        console.error('初始化失败：容器或题库数据异常');
-        return;
-    }
-    const container = document.getElementById('quizContainer');
-    if (!container) {
-        console.error('找不到题目容器');
-        return;
-    }
-    
-    // 按题型分类抽取
-    const types = ['单项选择题', '多项选择题', '判断题'];
-    const selected = types.map(t => 
-        questionBank.filter(q => q.type === t)
-                   .sort(() => 0.5 - Math.random())
-                   .slice(0,5)
-    ).flat();
-
-    // 生成带序号的题目
-    const questions = selected.slice(0,15).map((q, i) => ({...q, num: i+1}));
-    
-    container.innerHTML = questions.map(q => `
-        <div class="question-card" data-answer="${q.answer}">
-            <div class="question-header">
-                <span class="question-number">第${q.num}题</span>
-                <div class="question-body">${q.content}</div>
-                <button class="toggle-explanation">点击展开解析</button>
-            </div>
-            <div class="quiz-explanation" style="display:none">
-                <div class="correct-answer" style="color:var(--success);font-weight:bold;margin-bottom:10px;">
-                    正确答案：${q.answer}
-                </div>
-                <div style="color:#666;font-size:0.9em;">
-                    ${q.explanation || '暂无解析内容'}
-                </div>
-            </div>
-            <div class="quiz-options">
-                ${Object.entries(q.options).map(([key, val]) => `
-                    <label class="quiz-option">
-                        <input type="${q.type === '多项选择题' ? 'checkbox' : 'radio'}" 
-                               name="q${q.num}" 
-                               value="${key}">
-                        <span class="option-label">${key}. ${val}</span>
-                    </label>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-
-    // 绑定解析切换事件
-    document.querySelectorAll('.toggle-explanation').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const explanation = this.parentElement.nextElementSibling;
-            explanation.style.display = explanation.style.display === 'none' ? 'block' : 'none';
-            this.textContent = explanation.style.display === 'none' ? '点击展开解析' : '收起解析';
-        });
-    });
-
-    // 处理判断题选项
-document.querySelectorAll('.judgement-options label').forEach(label => {
-    const isTrue = label.textContent.includes('true');
-    label.innerHTML = `
-        <span class="option-label">
-            ${isTrue ? 'A. 正确' : 'B. 错误'}
-        </span>
-    `;
-});
-
-// 处理常规题目选项
-document.querySelectorAll('.quiz-option').forEach(option => {
-    const input = option.querySelector('input');
-    const label = option.querySelector('label');
-    if (label && input) {
-        const optionLetter = input.value.toUpperCase();
-        label.innerHTML = `
-            <span class="option-label">
-                ${optionLetter}. ${label.textContent.replace(/^[A-Z]\.?\s*/, '')}
-            </span>
-        `;
-    }
-});
-
-    // 绑定答题事件
-    document.querySelectorAll('.quiz-option input').forEach(input => {
-        input.addEventListener('change', function() {
-            this.closest('.question-card').classList.add('answered');
-            updateProgress();
-        });
-    });
-}
 
 function updateProgress() {
     const answered = document.querySelectorAll('.question-card:has(input:checked)').length;
@@ -1483,98 +1360,6 @@ function loadQuizQuestions() {
     renderQuestions(questions);
 }
 
-function renderQuestions() {
-    const quizContainer = document.getElementById('quizContainer');
-    if (!quizContainer || !questionBank?.length) {
-        console.error('初始化失败：容器或题库数据异常');
-        return;
-    }
-    const container = document.getElementById('quizContainer');
-    if (!container) {
-        console.error('找不到题目容器');
-        return;
-    }
-    
-    // 按题型分类抽取
-    const types = ['单项选择题', '多项选择题', '判断题'];
-    const selected = types.map(t => 
-        questionBank.filter(q => q.type === t)
-                   .sort(() => 0.5 - Math.random())
-                   .slice(0,5)
-    ).flat();
-
-    // 生成带序号的题目
-    const questions = selected.slice(0,15).map((q, i) => ({...q, num: i+1}));
-    
-    container.innerHTML = questions.map(q => `
-        <div class="question-card" data-answer="${q.answer}">
-            <div class="question-header">
-                <span class="question-number">第${q.num}题</span>
-                <div class="question-body">${q.content}</div>
-                <button class="toggle-explanation">点击展开解析</button>
-            </div>
-            <div class="quiz-explanation" style="display:none">
-                <div class="correct-answer" style="color:var(--success);font-weight:bold;margin-bottom:10px;">
-                    正确答案：${q.answer}
-                </div>
-                <div style="color:#666;font-size:0.9em;">
-                    ${q.explanation || '暂无解析内容'}
-                </div>
-            </div>
-            <div class="quiz-options">
-                ${Object.entries(q.options).map(([key, val]) => `
-                    <label class="quiz-option">
-                        <input type="${q.type === '多项选择题' ? 'checkbox' : 'radio'}" 
-                               name="q${q.num}" 
-                               value="${key}">
-                        <span class="option-label">${key}. ${val}</span>
-                    </label>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-
-    // 绑定解析切换事件
-    document.querySelectorAll('.toggle-explanation').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const explanation = this.parentElement.nextElementSibling;
-            explanation.style.display = explanation.style.display === 'none' ? 'block' : 'none';
-            this.textContent = explanation.style.display === 'none' ? '点击展开解析' : '收起解析';
-        });
-    });
-
-    // 处理判断题选项
-document.querySelectorAll('.judgement-options label').forEach(label => {
-    const isTrue = label.textContent.includes('true');
-    label.innerHTML = `
-        <span class="option-label">
-            ${isTrue ? 'A. 正确' : 'B. 错误'}
-        </span>
-    `;
-});
-
-// 处理常规题目选项
-document.querySelectorAll('.quiz-option').forEach(option => {
-    const input = option.querySelector('input');
-    const label = option.querySelector('label');
-    if (label && input) {
-        const optionLetter = input.value.toUpperCase();
-        label.innerHTML = `
-            <span class="option-label">
-                ${optionLetter}. ${label.textContent.replace(/^[A-Z]\.?\s*/, '')}
-            </span>
-        `;
-    }
-});
-
-    // 绑定答题事件
-    document.querySelectorAll('.quiz-option input').forEach(input => {
-        input.addEventListener('change', function() {
-            this.closest('.question-card').classList.add('answered');
-            updateProgress();
-        });
-    });
-}
 
 function updateProgress() {
     const answered = document.querySelectorAll('.question-card:has(input:checked)').length;
@@ -1698,98 +1483,6 @@ function loadQuizQuestions() {
     renderQuestions(questions);
 }
 
-function renderQuestions() {
-    const quizContainer = document.getElementById('quizContainer');
-    if (!quizContainer || !questionBank?.length) {
-        console.error('初始化失败：容器或题库数据异常');
-        return;
-    }
-    const container = document.getElementById('quizContainer');
-    if (!container) {
-        console.error('找不到题目容器');
-        return;
-    }
-    
-    // 按题型分类抽取
-    const types = ['单项选择题', '多项选择题', '判断题'];
-    const selected = types.map(t => 
-        questionBank.filter(q => q.type === t)
-                   .sort(() => 0.5 - Math.random())
-                   .slice(0,5)
-    ).flat();
-
-    // 生成带序号的题目
-    const questions = selected.slice(0,15).map((q, i) => ({...q, num: i+1}));
-    
-    container.innerHTML = questions.map(q => `
-        <div class="question-card" data-answer="${q.answer}">
-            <div class="question-header">
-                <span class="question-number">第${q.num}题</span>
-                <div class="question-body">${q.content}</div>
-                <button class="toggle-explanation">点击展开解析</button>
-            </div>
-            <div class="quiz-explanation" style="display:none">
-                <div class="correct-answer" style="color:var(--success);font-weight:bold;margin-bottom:10px;">
-                    正确答案：${q.answer}
-                </div>
-                <div style="color:#666;font-size:0.9em;">
-                    ${q.explanation || '暂无解析内容'}
-                </div>
-            </div>
-            <div class="quiz-options">
-                ${Object.entries(q.options).map(([key, val]) => `
-                    <label class="quiz-option">
-                        <input type="${q.type === '多项选择题' ? 'checkbox' : 'radio'}" 
-                               name="q${q.num}" 
-                               value="${key}">
-                        <span class="option-label">${key}. ${val}</span>
-                    </label>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-
-    // 绑定解析切换事件
-    document.querySelectorAll('.toggle-explanation').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const explanation = this.parentElement.nextElementSibling;
-            explanation.style.display = explanation.style.display === 'none' ? 'block' : 'none';
-            this.textContent = explanation.style.display === 'none' ? '点击展开解析' : '收起解析';
-        });
-    });
-
-    // 处理判断题选项
-document.querySelectorAll('.judgement-options label').forEach(label => {
-    const isTrue = label.textContent.includes('true');
-    label.innerHTML = `
-        <span class="option-label">
-            ${isTrue ? 'A. 正确' : 'B. 错误'}
-        </span>
-    `;
-});
-
-// 处理常规题目选项
-document.querySelectorAll('.quiz-option').forEach(option => {
-    const input = option.querySelector('input');
-    const label = option.querySelector('label');
-    if (label && input) {
-        const optionLetter = input.value.toUpperCase();
-        label.innerHTML = `
-            <span class="option-label">
-                ${optionLetter}. ${label.textContent.replace(/^[A-Z]\.?\s*/, '')}
-            </span>
-        `;
-    }
-});
-
-    // 绑定答题事件
-    document.querySelectorAll('.quiz-option input').forEach(input => {
-        input.addEventListener('change', function() {
-            this.closest('.question-card').classList.add('answered');
-            updateProgress();
-        });
-    });
-}
 
 function updateProgress() {
     const answered = document.querySelectorAll('.question-card:has(input:checked)').length;
@@ -1879,98 +1572,6 @@ function loadQuizQuestions() {
     renderQuestions(questions);
 }
 
-function renderQuestions() {
-    const quizContainer = document.getElementById('quizContainer');
-    if (!quizContainer || !questionBank?.length) {
-        console.error('初始化失败：容器或题库数据异常');
-        return;
-    }
-    const container = document.getElementById('quizContainer');
-    if (!container) {
-        console.error('找不到题目容器');
-        return;
-    }
-    
-    // 按题型分类抽取
-    const types = ['单项选择题', '多项选择题', '判断题'];
-    const selected = types.map(t => 
-        questionBank.filter(q => q.type === t)
-                   .sort(() => 0.5 - Math.random())
-                   .slice(0,5)
-    ).flat();
-
-    // 生成带序号的题目
-    const questions = selected.slice(0,15).map((q, i) => ({...q, num: i+1}));
-    
-    container.innerHTML = questions.map(q => `
-        <div class="question-card" data-answer="${q.answer}">
-            <div class="question-header">
-                <span class="question-number">第${q.num}题</span>
-                <div class="question-body">${q.content}</div>
-                <button class="toggle-explanation">点击展开解析</button>
-            </div>
-            <div class="quiz-explanation" style="display:none">
-                <div class="correct-answer" style="color:var(--success);font-weight:bold;margin-bottom:10px;">
-                    正确答案：${q.answer}
-                </div>
-                <div style="color:#666;font-size:0.9em;">
-                    ${q.explanation || '暂无解析内容'}
-                </div>
-            </div>
-            <div class="quiz-options">
-                ${Object.entries(q.options).map(([key, val]) => `
-                    <label class="quiz-option">
-                        <input type="${q.type === '多项选择题' ? 'checkbox' : 'radio'}" 
-                               name="q${q.num}" 
-                               value="${key}">
-                        <span class="option-label">${key}. ${val}</span>
-                    </label>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-
-    // 绑定解析切换事件
-    document.querySelectorAll('.toggle-explanation').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const explanation = this.parentElement.nextElementSibling;
-            explanation.style.display = explanation.style.display === 'none' ? 'block' : 'none';
-            this.textContent = explanation.style.display === 'none' ? '点击展开解析' : '收起解析';
-        });
-    });
-
-    // 处理判断题选项
-document.querySelectorAll('.judgement-options label').forEach(label => {
-    const isTrue = label.textContent.includes('true');
-    label.innerHTML = `
-        <span class="option-label">
-            ${isTrue ? 'A. 正确' : 'B. 错误'}
-        </span>
-    `;
-});
-
-// 处理常规题目选项
-document.querySelectorAll('.quiz-option').forEach(option => {
-    const input = option.querySelector('input');
-    const label = option.querySelector('label');
-    if (label && input) {
-        const optionLetter = input.value.toUpperCase();
-        label.innerHTML = `
-            <span class="option-label">
-                ${optionLetter}. ${label.textContent.replace(/^[A-Z]\.?\s*/, '')}
-            </span>
-        `;
-    }
-});
-
-    // 绑定答题事件
-    document.querySelectorAll('.quiz-option input').forEach(input => {
-        input.addEventListener('change', function() {
-            this.closest('.question-card').classList.add('answered');
-            updateProgress();
-        });
-    });
-}
 
 function updateProgress() {
     const answered = document.querySelectorAll('.question-card:has(input:checked)').length;
@@ -2105,98 +1706,6 @@ function loadQuizQuestions() {
     renderQuestions(questions);
 }
 
-function renderQuestions() {
-    const quizContainer = document.getElementById('quizContainer');
-    if (!quizContainer || !questionBank?.length) {
-        console.error('初始化失败：容器或题库数据异常');
-        return;
-    }
-    const container = document.getElementById('quizContainer');
-    if (!container) {
-        console.error('找不到题目容器');
-        return;
-    }
-    
-    // 按题型分类抽取
-    const types = ['单项选择题', '多项选择题', '判断题'];
-    const selected = types.map(t => 
-        questionBank.filter(q => q.type === t)
-                   .sort(() => 0.5 - Math.random())
-                   .slice(0,5)
-    ).flat();
-
-    // 生成带序号的题目
-    const questions = selected.slice(0,15).map((q, i) => ({...q, num: i+1}));
-    
-    container.innerHTML = questions.map(q => `
-        <div class="question-card" data-answer="${q.answer}">
-            <div class="question-header">
-                <span class="question-number">第${q.num}题</span>
-                <div class="question-body">${q.content}</div>
-                <button class="toggle-explanation">点击展开解析</button>
-            </div>
-            <div class="quiz-explanation" style="display:none">
-                <div class="correct-answer" style="color:var(--success);font-weight:bold;margin-bottom:10px;">
-                    正确答案：${q.answer}
-                </div>
-                <div style="color:#666;font-size:0.9em;">
-                    ${q.explanation || '暂无解析内容'}
-                </div>
-            </div>
-            <div class="quiz-options">
-                ${Object.entries(q.options).map(([key, val]) => `
-                    <label class="quiz-option">
-                        <input type="${q.type === '多项选择题' ? 'checkbox' : 'radio'}" 
-                               name="q${q.num}" 
-                               value="${key}">
-                        <span class="option-label">${key}. ${val}</span>
-                    </label>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-
-    // 绑定解析切换事件
-    document.querySelectorAll('.toggle-explanation').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const explanation = this.parentElement.nextElementSibling;
-            explanation.style.display = explanation.style.display === 'none' ? 'block' : 'none';
-            this.textContent = explanation.style.display === 'none' ? '点击展开解析' : '收起解析';
-        });
-    });
-
-    // 处理判断题选项
-document.querySelectorAll('.judgement-options label').forEach(label => {
-    const isTrue = label.textContent.includes('true');
-    label.innerHTML = `
-        <span class="option-label">
-            ${isTrue ? 'A. 正确' : 'B. 错误'}
-        </span>
-    `;
-});
-
-// 处理常规题目选项
-document.querySelectorAll('.quiz-option').forEach(option => {
-    const input = option.querySelector('input');
-    const label = option.querySelector('label');
-    if (label && input) {
-        const optionLetter = input.value.toUpperCase();
-        label.innerHTML = `
-            <span class="option-label">
-                ${optionLetter}. ${label.textContent.replace(/^[A-Z]\.?\s*/, '')}
-            </span>
-        `;
-    }
-});
-
-    // 绑定答题事件
-    document.querySelectorAll('.quiz-option input').forEach(input => {
-        input.addEventListener('change', function() {
-            this.closest('.question-card').classList.add('answered');
-            updateProgress();
-        });
-    });
-}
 
 function updateProgress() {
     const answered = document.querySelectorAll('.question-card:has(input:checked)').length;
@@ -2322,99 +1831,6 @@ function loadQuizQuestions() {
     renderQuestions(questions);
 }
 
-function renderQuestions() {
-    const quizContainer = document.getElementById('quizContainer');
-    if (!quizContainer || !questionBank?.length) {
-        console.error('初始化失败：容器或题库数据异常');
-        return;
-    }
-    const container = document.getElementById('quizContainer');
-    if (!container) {
-        console.error('找不到题目容器');
-        return;
-    }
-    
-    // 按题型分类抽取
-    const types = ['单项选择题', '多项选择题', '判断题'];
-    const selected = types.map(t => 
-        questionBank.filter(q => q.type === t)
-                   .sort(() => 0.5 - Math.random())
-                   .slice(0,5)
-    ).flat();
-
-    // 生成带序号的题目
-    const questions = selected.slice(0,15).map((q, i) => ({...q, num: i+1}));
-    
-    container.innerHTML = questions.map(q => `
-        <div class="question-card" data-answer="${q.answer}">
-            <div class="question-header">
-                <span class="question-number">第${q.num}题</span>
-                <div class="question-body">${q.content}</div>
-                <button class="toggle-explanation">点击展开解析</button>
-            </div>
-            <div class="quiz-explanation" style="display:none">
-                <div class="correct-answer" style="color:var(--success);font-weight:bold;margin-bottom:10px;">
-                    正确答案：${q.answer}
-                </div>
-                <div style="color:#666;font-size:0.9em;">
-                    ${q.explanation || '暂无解析内容'}
-                </div>
-            </div>
-            <div class="quiz-options">
-                ${Object.entries(q.options).map(([key, val]) => `
-                    <label class="quiz-option">
-                        <input type="${q.type === '多项选择题' ? 'checkbox' : 'radio'}" 
-                               name="q${q.num}" 
-                               value="${key}">
-                        <span class="option-label">${key}. ${val}</span>
-                    </label>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-
-    // 绑定解析切换事件
-    document.querySelectorAll('.toggle-explanation').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const explanation = this.parentElement.nextElementSibling;
-            explanation.style.display = explanation.style.display === 'none' ? 'block' : 'none';
-            this.textContent = explanation.style.display === 'none' ? '点击展开解析' : '收起解析';
-        });
-    });
-
-    // 处理判断题选项
-document.querySelectorAll('.judgement-options label').forEach(label => {
-    const isTrue = label.textContent.includes('true');
-    label.innerHTML = `
-        <span class="option-label">
-            ${isTrue ? 'A. 正确' : 'B. 错误'}
-        </span>
-    `;
-});
-
-// 处理常规题目选项
-document.querySelectorAll('.quiz-option').forEach(option => {
-    const input = option.querySelector('input');
-    const label = option.querySelector('label');
-    if (label && input) {
-        const optionLetter = input.value.toUpperCase();
-        label.innerHTML = `
-            <span class="option-label">
-                ${optionLetter}. ${label.textContent.replace(/^[A-Z]\.?\s*/, '')}
-            </span>
-        `;
-    }
-});
-
-    // 绑定答题事件
-    document.querySelectorAll('.quiz-option input').forEach(input => {
-        input.addEventListener('change', function() {
-            this.closest('.question-card').classList.add('answered');
-            updateProgress();
-        });
-    });
-}
-
 function updateProgress() {
     const answered = document.querySelectorAll('.question-card:has(input:checked)').length;
     const progressFill = document.getElementById('progress-fill');
@@ -2492,8 +1908,8 @@ function updateLearningProgress() {
                 <div class="profile-card">
                     <h3 class="section-title">战略能力评估</h3>
                     <div class="skill-radar">
-                        <canvas id="radarChart"></canvas>
-                    </div>
+                    <canvas id="skillRadarChart"></canvas>
+                </div>
 
 
 
@@ -2510,98 +1926,6 @@ function loadQuizQuestions() {
     renderQuestions(questions);
 }
 
-function renderQuestions() {
-    const quizContainer = document.getElementById('quizContainer');
-    if (!quizContainer || !questionBank?.length) {
-        console.error('初始化失败：容器或题库数据异常');
-        return;
-    }
-    const container = document.getElementById('quizContainer');
-    if (!container) {
-        console.error('找不到题目容器');
-        return;
-    }
-    
-    // 按题型分类抽取
-    const types = ['单项选择题', '多项选择题', '判断题'];
-    const selected = types.map(t => 
-        questionBank.filter(q => q.type === t)
-                   .sort(() => 0.5 - Math.random())
-                   .slice(0,5)
-    ).flat();
-
-    // 生成带序号的题目
-    const questions = selected.slice(0,15).map((q, i) => ({...q, num: i+1}));
-    
-    container.innerHTML = questions.map(q => `
-        <div class="question-card" data-answer="${q.answer}">
-            <div class="question-header">
-                <span class="question-number">第${q.num}题</span>
-                <div class="question-body">${q.content}</div>
-                <button class="toggle-explanation">点击展开解析</button>
-            </div>
-            <div class="quiz-explanation" style="display:none">
-                <div class="correct-answer" style="color:var(--success);font-weight:bold;margin-bottom:10px;">
-                    正确答案：${q.answer}
-                </div>
-                <div style="color:#666;font-size:0.9em;">
-                    ${q.explanation || '暂无解析内容'}
-                </div>
-            </div>
-            <div class="quiz-options">
-                ${Object.entries(q.options).map(([key, val]) => `
-                    <label class="quiz-option">
-                        <input type="${q.type === '多项选择题' ? 'checkbox' : 'radio'}" 
-                               name="q${q.num}" 
-                               value="${key}">
-                        <span class="option-label">${key}. ${val}</span>
-                    </label>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-
-    // 绑定解析切换事件
-    document.querySelectorAll('.toggle-explanation').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const explanation = this.parentElement.nextElementSibling;
-            explanation.style.display = explanation.style.display === 'none' ? 'block' : 'none';
-            this.textContent = explanation.style.display === 'none' ? '点击展开解析' : '收起解析';
-        });
-    });
-
-    // 处理判断题选项
-document.querySelectorAll('.judgement-options label').forEach(label => {
-    const isTrue = label.textContent.includes('true');
-    label.innerHTML = `
-        <span class="option-label">
-            ${isTrue ? 'A. 正确' : 'B. 错误'}
-        </span>
-    `;
-});
-
-// 处理常规题目选项
-document.querySelectorAll('.quiz-option').forEach(option => {
-    const input = option.querySelector('input');
-    const label = option.querySelector('label');
-    if (label && input) {
-        const optionLetter = input.value.toUpperCase();
-        label.innerHTML = `
-            <span class="option-label">
-                ${optionLetter}. ${label.textContent.replace(/^[A-Z]\.?\s*/, '')}
-            </span>
-        `;
-    }
-});
-
-    // 绑定答题事件
-    document.querySelectorAll('.quiz-option input').forEach(input => {
-        input.addEventListener('change', function() {
-            this.closest('.question-card').classList.add('answered');
-            updateProgress();
-        });
-    });
-}
 
 function updateProgress() {
     const answered = document.querySelectorAll('.question-card:has(input:checked)').length;
@@ -2713,98 +2037,7 @@ function loadQuizQuestions() {
     renderQuestions(questions);
 }
 
-function renderQuestions() {
-    const quizContainer = document.getElementById('quizContainer');
-    if (!quizContainer || !questionBank?.length) {
-        console.error('初始化失败：容器或题库数据异常');
-        return;
-    }
-    const container = document.getElementById('quizContainer');
-    if (!container) {
-        console.error('找不到题目容器');
-        return;
-    }
-    
-    // 按题型分类抽取
-    const types = ['单项选择题', '多项选择题', '判断题'];
-    const selected = types.map(t => 
-        questionBank.filter(q => q.type === t)
-                   .sort(() => 0.5 - Math.random())
-                   .slice(0,5)
-    ).flat();
 
-    // 生成带序号的题目
-    const questions = selected.slice(0,15).map((q, i) => ({...q, num: i+1}));
-    
-    container.innerHTML = questions.map(q => `
-        <div class="question-card" data-answer="${q.answer}">
-            <div class="question-header">
-                <span class="question-number">第${q.num}题</span>
-                <div class="question-body">${q.content}</div>
-                <button class="toggle-explanation">点击展开解析</button>
-            </div>
-            <div class="quiz-explanation" style="display:none">
-                <div class="correct-answer" style="color:var(--success);font-weight:bold;margin-bottom:10px;">
-                    正确答案：${q.answer}
-                </div>
-                <div style="color:#666;font-size:0.9em;">
-                    ${q.explanation || '暂无解析内容'}
-                </div>
-            </div>
-            <div class="quiz-options">
-                ${Object.entries(q.options).map(([key, val]) => `
-                    <label class="quiz-option">
-                        <input type="${q.type === '多项选择题' ? 'checkbox' : 'radio'}" 
-                               name="q${q.num}" 
-                               value="${key}">
-                        <span class="option-label">${key}. ${val}</span>
-                    </label>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-
-    // 绑定解析切换事件
-    document.querySelectorAll('.toggle-explanation').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const explanation = this.parentElement.nextElementSibling;
-            explanation.style.display = explanation.style.display === 'none' ? 'block' : 'none';
-            this.textContent = explanation.style.display === 'none' ? '点击展开解析' : '收起解析';
-        });
-    });
-
-    // 处理判断题选项
-document.querySelectorAll('.judgement-options label').forEach(label => {
-    const isTrue = label.textContent.includes('true');
-    label.innerHTML = `
-        <span class="option-label">
-            ${isTrue ? 'A. 正确' : 'B. 错误'}
-        </span>
-    `;
-});
-
-// 处理常规题目选项
-document.querySelectorAll('.quiz-option').forEach(option => {
-    const input = option.querySelector('input');
-    const label = option.querySelector('label');
-    if (label && input) {
-        const optionLetter = input.value.toUpperCase();
-        label.innerHTML = `
-            <span class="option-label">
-                ${optionLetter}. ${label.textContent.replace(/^[A-Z]\.?\s*/, '')}
-            </span>
-        `;
-    }
-});
-
-    // 绑定答题事件
-    document.querySelectorAll('.quiz-option input').forEach(input => {
-        input.addEventListener('change', function() {
-            this.closest('.question-card').classList.add('answered');
-            updateProgress();
-        });
-    });
-}
 
 function updateProgress() {
     const answered = document.querySelectorAll('.question-card:has(input:checked)').length;
@@ -4016,11 +3249,11 @@ function renderQuestions(questions) {
             optionsHtml = `
                 <label class="quiz-option">
                     <input type="radio" name="q${index}" value="√">
-                    √
+                    正确
                 </label>
                 <label class="quiz-option">
                     <input type="radio" name="q${index}" value="×">
-                    ×
+                    错误
                 </label>
             `;
         } else if (q.options) {
@@ -4038,7 +3271,7 @@ function renderQuestions(questions) {
         }
 
         html += `
-            <div class="question-card" data-id="${index}" data-type="${q.type}" data-correct-answer="${q.answer}">
+            <div class="question-card" data-id="${index}" data-type="${q.type}" data-answer="${q.answer}">
                 <div class="question-header">
             <span class="question-number">第${index+1}题</span>
             <div class="question-body">${q.content}</div>
@@ -4759,6 +3992,38 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return num.toLocaleString();
         }
+
+        // 在页面加载完成后添加以下初始化代码
+        window.addEventListener('load', function() {
+            const ctx = document.getElementById('skillRadarChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['战略视野', '风险控制', '执行效率', '创新思维', '团队协作', '财务敏锐'],
+        datasets: [{
+            label: '能力评估',
+            data: [65, 45, 72, 58, 60, 68],
+                        backgroundColor: 'rgba(255,107,53,0.2)',
+                        borderColor: '#FF6B35',
+                        pointBackgroundColor: '#004E89'
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 100,
+                            pointLabels: {
+                                color: '#004E89'
+                            },
+                            grid: {
+                                color: 'rgba(0,78,137,0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        });
     </script>
 </body>
 </html>
