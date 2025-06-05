@@ -3380,58 +3380,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 随机环境变化
     setInterval(randomEnvironmentChange, 20000);
 });
-
-        // 初始化图表
-        function initCharts() {
-            // 雷达图
-            const radarCtx = document.getElementById('radarChart').getContext('2d');
-            radarChart = new Chart(radarCtx, {
-                type: 'radar',
-                data: {
-                    labels: ['战略视野', '风险控制', '执行效率', '创新思维', '团队协作', '财务敏锐'],
-                    datasets: [{
-                        label: '能力评估',
-                        data: [
-                            gameData.skills.vision,
-                            gameData.skills.riskControl,
-                            gameData.skills.execution,
-                            gameData.skills.innovation,
-                            gameData.skills.teamwork,
-                            gameData.skills.finance
-                        ],
-                        backgroundColor: 'rgba(58, 123, 213, 0.2)',
-                        borderColor: 'rgba(58, 123, 213, 1)',
-                        pointBackgroundColor: 'rgba(58, 123, 213, 1)',
-                        pointBorderColor: '#fff',
-                        pointHoverBackgroundColor: '#fff',
-                        pointHoverBorderColor: 'rgba(58, 123, 213, 1)',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        r: {
-                            angleLines: {
-                                color: 'rgba(0,0,0,0.1)'
-                            },
-                            suggestedMin: 0,
-                            suggestedMax: 100,
-                            ticks: {
-                                stepSize: 20
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
-                }
-            });
-        }
-
         // 切换标签页
         function switchTab(tabId) {
     // 更新标签按钮状态
